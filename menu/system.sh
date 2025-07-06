@@ -204,7 +204,7 @@ function skt-domain() {
 
     # Fungsi instalasi slowdns
     install_slowdns() {
-        local script_url="https://raw.githubusercontent.com/Xiyunnn/gas/refs/heads/main/SKT-DnsTT/installsl.sh"
+        local script_url="https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-DnsTT/installsl.sh"
         local output_file="installsl.sh"
         
         echo -e "${COLOR1}Mengunduh SlowDNS...${NC}"
@@ -463,7 +463,7 @@ case $opt in
 06 |7) clear ; skt-certv2ray ;; 
 07 |8) clear ; skt-gotopp ;; 
 09 |9) clear ; skt-check-port ;; 
-10 |10) clear ; wget -q https://raw.githubusercontent.com/Xiyunnn/gas/refs/heads/main/rebuildpepesmenu && bash rebuildpepesmenu ;; 
+10 |10) clear ; wget -q https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/rebuildpepesmenu && bash rebuildpepesmenu ;; 
 00 |0) clear ; menu ;; 
 *) echo -e "" ; echo "Anda salah tekan" ; sleep 1 ; skt-system ;;
 esac
