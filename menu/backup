@@ -1,0 +1,144 @@
+#!/bin/bash
+# My Telegram : https://t.me/RISU_STAR8
+# ==========================================
+# Color
+RED='\033[0;31m'
+NC='\033[0m'
+GREEN='\033[0;32m'
+ORANGE='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+LIGHT='\033[0;37m'
+# ==========================================
+
+# Function to display progress spinner
+spinner() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='|/-\'
+    while ps -p $pid > /dev/null; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+}
+
+# Getting bot info
+CHATID=$(cat /usr/bin/idchat)
+KEY=$(cat /usr/bin/token)
+export TIME="10"
+export URL="https://api.telegram.org/bot$KEY/sendMessage"
+
+clear
+IP=$(curl -sS ipv4.icanhazip.com)
+domain=$(cat /etc/xray/domain 2>/dev/null || echo "Tidak ada domain")
+date=$(date +"%Y-%m-%d")
+timestamp=$(date +"%Y%m%d_%H%M%S")
+
+echo -e "${GREEN}Mohon Menunggu, Proses Backup sedang berlangsung !!${NC}"
+
+# Backup directory and file
+BACKUP_DIR="/root/backup_${timestamp}"
+BACKUP_FILE="/root/backup_${IP}_${timestamp}.zip"
+BACKUP_FILE_NAME="backup_${IP}_${timestamp}.zip"
+
+# Create backup directory
+echo -e "${BLUE}Membuat direktori backup...${NC}"
+mkdir -p "$BACKUP_DIR" || {
+    echo -e "${RED}Gagal membuat direktori backup${NC}"
+    exit 1
+}
+
+# Copy system files and directories
+cp -r /etc/passwd /etc/group /etc/shadow /etc/gshadow /etc/crontab "$BACKUP_DIR/"
+cp -r /var/lib/kyt/ /etc/xray /var/www/html/ "$BACKUP_DIR/" 2>/dev/null
+
+# Create ZIP archive
+echo -e "${BLUE}Membuat file ZIP backup...${NC}"
+cd "$BACKUP_DIR" || exit 1
+(zip -r "$BACKUP_FILE" . > /dev/null 2>&1) &
+pid=$!
+spinner $pid
+wait $pid
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Gagal membuat file ZIP backup${NC}"
+    rm -rf "$BACKUP_DIR"
+    exit 1
+else
+    echo -e "${GREEN}File ZIP backup berhasil dibuat: $BACKUP_FILE${NC}"
+fi
+
+# Upload to Google Drive
+echo -e "${BLUE}Mengupload backup ke Google Drive...${NC}"
+(rclone copy "$BACKUP_FILE" dr:backup/ > /dev/null 2>&1) &
+pid=$!
+spinner $pid
+wait $pid
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Gagal mengupload backup ke Google Drive${NC}"
+    link="Tidak tersedia"
+else
+    echo -e "${GREEN}Upload ke Google Drive berhasil${NC}"
+    # Get shareable link ONLY if upload is successful
+    echo -e "${BLUE}Mendapatkan link download...${NC}"
+    link=$(rclone link dr:backup/"$BACKUP_FILE_NAME" 2>/dev/null)
+    if [[ ! "$link" =~ "id=" ]]; then
+        echo -e "${RED}Gagal mendapatkan link Google Drive${NC}"
+        link="Tidak tersedia"
+    fi
+fi
+echo -e "${GREEN}Link backup: $link${NC}"
+
+# Send Telegram notification message
+echo -e "${BLUE}Mengirim notifikasi teks ke Telegram...${NC}"
+TEXT="
+<b>🚨 Backup Notification 🚨</b>
+━━━━━━━━━━━━━━━━━━
+<i>Detail server Anda telah berhasil di-backup.</i>
+
+🖥️ <b>VPS Info</b>
+┣ <b>IP Address:</b> <code>${IP}</code>
+┣ <b>Domain:</b> <code>${domain}</code>
+┗ <b>Lokasi:</b> <code>$(curl -s ipinfo.io/city), $(curl -s ipinfo.io/country)</code>
+
+💾 <b>Backup Details</b>
+┣ <b>Nama File:</b> <code>${BACKUP_FILE_NAME}</code>
+┣ <b>Waktu:</b> <code>$(date '+%d %B %Y, %H:%M:%S') WIB</code>
+┗ <b>Status:</b> ✅ Berhasil
+
+📎 <b>Download Link</b>
+<a href=\"${link}\">Klik Disini Untuk Download</a>
+"
+curl -s --max-time $TIME -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" "$URL" >/dev/null
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Notifikasi teks berhasil terkirim${NC}"
+else
+    echo -e "${RED}Gagal mengirim notifikasi teks${NC}"
+fi
+
+# Send backup file to Telegram
+echo -e "${BLUE}Mengirim file backup ke Telegram...${NC}"
+(curl --max-time 180 -F "chat_id=${CHATID}" \
+     -F "document=@${BACKUP_FILE}" \
+     -F "caption=File backup: ${BACKUP_FILE_NAME}" \
+     https://api.telegram.org/bot${KEY}/sendDocument > /dev/null 2>&1) &
+pid=$!
+spinner $pid
+wait $pid
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}File backup berhasil dikirim ke Telegram.${NC}"
+else
+    echo -e "${RED}Gagal mengirim file backup ke Telegram (Mungkin ukuran file > 50MB).${NC}"
+fi
+
+# Clean up
+echo -e "${BLUE}Membersihkan file dan direktori sementara...${NC}"
+rm -f "$BACKUP_FILE"
+rm -rf "$BACKUP_DIR"
+
+echo "Proses backup selesai."
