@@ -1,4 +1,8 @@
-# WR SCRIPT VPS INSTALL
+# 1. INSTALL
+
+```
+wget -q https://raw.githubusercontent.com/Xiyunnn/wr/refs/heads/main/wr && chmod +x wr  && ./wr
+```
 
 
 ## 2. UPDATE 
